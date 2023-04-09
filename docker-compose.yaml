@@ -1,0 +1,9 @@
+version: '3.9'
+
+services:
+  ps2dev:
+    container_name: ps2dev
+    image: ps2dev/ps2dev
+    volumes:
+      - ./:/project
+    tty: true
