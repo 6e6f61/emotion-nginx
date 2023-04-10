@@ -15,11 +15,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <ps2ip.h>
+#include <stdio.h>
+#include <debug.h>
 
-#include "log.h"
 #include "mem_card.h"
 
 static int  parse_request(int, char *);
+static int  write_response(int, int, const char *, int len);
+static int  write_code(int, int, int);
 static void url_decode(char *, const char *);
 
 #define MAX_REQUEST_SIZE (1024 * 2)
@@ -33,8 +36,8 @@ const char NO_MEMORY_CARDS[] =
 "/dev/random.</p><p><em>Thank you for using emotion-nginx.</em></p></body></html>\n";
 
 const char FOUR_OH_FOUR[] =
-"<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1 style=\"text-align:"
-"center;\">404 Not Found</h1><hr><p>emotion-nginx</p></body></html>\n";
+"<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style=\"text-align: center;\">"
+"<h1>404 Not Found</h1><hr><p>emotion-nginx</p></body></html>\n";
 
 const char FIVE_OH_ONE[] =
 "<!DOCTYPE html><html><head><title>501 Unsupported Method</title></head><body><h1 style="
@@ -42,28 +45,50 @@ const char FIVE_OH_ONE[] =
 
 int http_respond(int socket)
 {
+    int file_size;
     char path[512] = { 0 };
+    char file_buf[65535]; // the length field of a file's entry on a memory card is one word.
     if (parse_request(socket, path) == -1)
-    {
-        return (writesocket(socket, "HTTP/1.0 501 Unsupported Method\r\n\r\n", 34) == -1 ||
-               writesocket(socket, FIVE_OH_ONE, sizeof (FIVE_OH_ONE)) == -1) ? -1 : 0;
-    }
-
-    if (writesocket(socket, "HTTP/1.0 200 OK\r\n\r\n", 39) == -1)
-        return -1;
-
+        return write_response(socket, 501, FIVE_OH_ONE, sizeof (FIVE_OH_ONE) - 1);
     if (mc_no_cards())
     {
-        multi_log("no memory cards inserted; served template\n");
-        if (writesocket(socket, NO_MEMORY_CARDS, sizeof (NO_MEMORY_CARDS) - 1) == -1)
-            return -1;
-        return 0;
+        scr_printf("no memory cards inserted; served template\n");
+        return write_response(socket, 200, NO_MEMORY_CARDS, sizeof (NO_MEMORY_CARDS) - 1);
     } else
     {
-        multi_log("mem card found\n");
+        scr_printf("mem card found\n");
+        if (mc_is_dir(path))
+            strcat(path, "index.html");
+        scr_printf("trying to find %s\n", path);
+        if ((file_size = mc_retrieve_file(file_buf, path)) < 0)
+            return write_response(socket, 404, FOUR_OH_FOUR, sizeof (FOUR_OH_FOUR) - 1);
+        return write_response(socket, 200, file_buf, file_size);
     }
 
     return 0;
+}
+
+static int write_response(int socket, int code, const char *body, int len)
+{
+    return write_code(socket, code, len) < 0 ||
+          writesocket(socket, body, len) < 0;
+}
+
+static int write_code(int socket, int code, int len)
+{
+    char cl_buf[10]; /* oughta be fine :)) */
+    sprintf(cl_buf, "%d", len);
+
+    switch (code) {
+        case 200: writesocket(socket, "HTTP/1.1 200 OK\r\n", 17); break;
+        case 501: writesocket(socket, "HTTP/1.1 501 Unsupported Method\r\n", 33); break;
+        default:  writesocket(socket, "HTTP/1.1 500 Internal Server Error\r\n", 36);
+    }
+
+    writesocket(socket, "Content-Length: ", 16);
+    writesocket(socket, cl_buf, strlen(cl_buf));
+
+    return writesocket(socket, "\r\n\r\n", 4);
 }
 
 /* -1 = unsupported method; < -1 = other error */

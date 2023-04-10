@@ -21,9 +21,9 @@
 #include <unistd.h>
 #include <iopheap.h>
 #include <string.h>
+#include <debug.h>
 
 #include "tcp.h"
-#include "log.h"
 
 extern unsigned char DEV9_irx[];
 extern unsigned int size_DEV9_irx;
@@ -50,14 +50,14 @@ int tcp_enable_dhcp(char *interface)
 
     if ((r = ps2ip_getconfig(interface, &ip_config)) == 0)
     {
-        multi_log("!! couldn't extract %s configuration: %d\n", interface, r);
+        scr_printf("!! couldn't extract %s configuration: %d\n", interface, r);
         return -1;
     }
 
     ip_config.dhcp_enabled = 1;
     if ((r = ps2ip_setconfig(&ip_config)) == 0)
     {
-        multi_log("!! couldn't apply network configuration: %d\n", r);
+        scr_printf("!! couldn't apply network configuration: %d\n", r);
         return -1;
     }
 
@@ -65,7 +65,7 @@ int tcp_enable_dhcp(char *interface)
     {
         ps2ip_getconfig(interface, &ip_config);
         r = ip_config.dhcp_status;
-        multi_log("waiting for dhcp lease (%d)\n", r);
+        scr_printf("waiting for dhcp lease (%d)\n", r);
         sleep(1);
     }
 
@@ -81,9 +81,9 @@ int tcp_up_link(char *interface)
 
     if ((e = NetManInit()))
     {
-        multi_log("!! failed to initialise netman: %d\n", e);
+        scr_printf("!! failed to initialise netman: %d\n", e);
         return -1;
-    } else multi_log("initialised netman ok\n");
+    } else scr_printf("initialised netman ok\n");
 
     /* unimportant because we're using dhcp */
     ip4_addr_set_zero(&ip_addr);
@@ -91,17 +91,17 @@ int tcp_up_link(char *interface)
     ip4_addr_set_zero(&gateway);
 
     ps2ipInit(&ip_addr, &netmask, &gateway);
-    multi_log("initialised tcp stack\n");
+    scr_printf("initialised tcp stack\n");
 
     while ((state = NetManIoctl(NETMAN_NETIF_IOCTL_GET_LINK_STATUS, NULL, 0, NULL, 0))
         != NETMAN_NETIF_ETH_LINK_STATE_UP)
     {
-        multi_log("waiting for link (%d)\n", state);
+        scr_printf("waiting for link (%d)\n", state);
         sleep(1);
     }
 
     tcp_enable_dhcp(interface);
-    multi_log("enabled dhcp\n");
+    scr_printf("enabled dhcp\n");
 
     dns_addr = dns_getserver(0);
     ps2ip_getconfig(interface, &ip_config);;
@@ -131,7 +131,7 @@ int tcp_init_server(void)
 
     if (getaddrinfo(NULL, "80", &hints, &res) != 0)
     {
-        multi_log("!! couldn't enumerate available interfaces\n");
+        scr_printf("!! couldn't enumerate available interfaces\n");
         return -1;
     }
 
@@ -147,7 +147,7 @@ int tcp_init_server(void)
 
     if (!p)
     {
-        multi_log("!! enumerated interfaces but found nothing to bind to\n");
+        scr_printf("!! enumerated interfaces but found nothing to bind to\n");
         return -1;
     }
 

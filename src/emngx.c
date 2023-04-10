@@ -24,7 +24,6 @@
 #include <sifrpc.h>
 #include <iopcontrol.h>
 
-#include "log.h"
 #include "tcp.h"
 #include "mem_card.h"
 #include "http.h"
@@ -41,7 +40,7 @@ int prepare_sif(void)
 
     if ((r = mc_init_sif()) != 0)
     {
-        multi_log("!! couldn't prepare sif for memory cards: %d\n", r);
+        scr_printf("!! couldn't prepare sif for memory cards: %d\n", r);
         return -1;
     }
 
@@ -58,41 +57,41 @@ int main(void)
 
     init_scr();
     sleep(2);
-    multi_log("emotion-nginx\n");
+    scr_printf("emotion-nginx\n");
 
     if ((r = prepare_sif()) != 0) goto end;
-    multi_log("prepared sif\n");
+    scr_printf("prepared sif\n");
 
     if (mc_init_server() != 0) goto end;
-    multi_log("initialised memory card server\n");
+    scr_printf("initialised memory card server\n");
 
     if ((r = tcp_up_link(INTERFACE)) != 0) goto end;
-    multi_log("link is up\n");
+    scr_printf("link is up\n");
 
     if ((listenfd = tcp_init_server()) < 0) goto end;
-    multi_log("interface bound\n");
+    scr_printf("interface bound\n");
 
-    multi_log("ready to serve requests on :80\n");
+    scr_printf("ready to serve requests on :80\n");
     for (;;)
     {
         if ((socket = accept(listenfd, (struct sockaddr *)&client_addr, &ca_size)) < 0)
         {
-            multi_log("!! error accepting request: %d\n", socket);
+            scr_printf("!! error accepting request: %d\n", socket);
             close(socket);
             continue;
         }
         char *buffer = inet_ntoa(client_addr.sin_addr);
-        multi_log("accepting request from %s (%d)\n", buffer, socket);
+        scr_printf("accepting request from %s (%d)\n", buffer, socket);
 
-        if ((r = http_respond(socket)) != 0) multi_log("!! couldn't respond: %d\n", r);
-        else multi_log("served ok\n");
+        if ((r = http_respond(socket)) != 0) scr_printf("!! couldn't respond: %d\n", r);
+        else scr_printf("served ok\n");
 
         close(socket);
     }
 
 end:
     /* oh noes */
-    multi_log("!! end of main\n");
+    scr_printf("!! end of main\n");
     tcp_deinit();
     for (;;) sleep(2); 
 

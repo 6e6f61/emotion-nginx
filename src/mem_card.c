@@ -14,8 +14,8 @@
 */
 #include <libmc.h>
 #include <loadfile.h>
-
-#include "log.h"
+#include <debug.h>
+#include <fcntl.h>
 
 int mc_init_sif(void)
 {
@@ -37,7 +37,7 @@ int mc_init_server(void)
 
     if ((r = mcInit(MC_TYPE_XMC)) < 0)
     {
-        multi_log("failed to initialise mem card server: %d\n", r);
+        scr_printf("failed to initialise mem card server: %d\n", r);
         return -1;
     }
 
@@ -46,13 +46,48 @@ int mc_init_server(void)
 
 int mc_no_cards(void)
 {
-    int t, f, m;
-    multi_log(
-    "port 0 slot 0: %d\nport 0 slot 1: %d\nport 1 slot 0: %d\nport 1 slot 1:%d\n",
-        mcGetInfo(0, 0, &t, &f, &m),
-        mcGetInfo(0, 1, &t, &f, &m),
-        mcGetInfo(1, 0, &t, &f, &m),
-        mcGetInfo(1, 1, &t, &f, &m));
-    return mcGetInfo(0, 0, &t, &f, &m) <= -2
-        && mcGetInfo(0, 1, &t, &f, &m) <= -2;
+    int r_slot1, r_slot2;
+    int t;
+
+    mcGetInfo(0, 0, &t, &t, &t);
+    mcSync(0, NULL, &r_slot1);
+
+    mcGetInfo(1, 0, &t, &t, &t);
+    mcSync(0, NULL, &r_slot2);
+
+    scr_printf("detected mem card state:\nslot 1: %d; slot 2: %d\n", r_slot1, r_slot2);
+    return r_slot1 < -2 && r_slot2 < -2;
+}
+
+int mc_is_dir(const char *path)
+{
+    int r;
+
+    mcGetDir(0, 0, path, 0, 0, NULL);
+    mcSync(0, NULL, &r);
+    if (r > 0) return 1;
+
+    mcGetDir(1, 0, path, 0, 0, NULL);
+    mcSync(0, NULL, &r);
+    return r > 0;    
+}
+
+int mc_retrieve_file(char *dst, const char *path)
+{
+    int r, fd;
+
+    mcOpen(0, 0, path, O_RDONLY);
+    mcSync(0, NULL, &fd);
+    if (fd < 0)
+    {   
+        mcOpen(1, 0, path, O_RDONLY);
+        mcSync(0, NULL, &fd);
+    }
+
+    if (fd < 0) return fd;
+
+    mcRead(fd, dst, 65535);
+    mcSync(0, NULL, &r);
+
+    return r;
 }
