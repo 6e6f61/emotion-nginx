@@ -1,4 +1,4 @@
-/bios
+/tools
 generated/*
 *.o
 *.elf

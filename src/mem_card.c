@@ -76,18 +76,24 @@ int mc_retrieve_file(char *dst, const char *path)
 {
     int r, fd;
 
-    mcOpen(0, 0, path, O_RDONLY);
+    mcOpen(0, 0, path, 1);
     mcSync(0, NULL, &fd);
     if (fd < 0)
-    {   
-        mcOpen(1, 0, path, O_RDONLY);
+    {
+        scr_printf("couldn't find file on mc0\n");
+        mcOpen(1, 0, path, 1);
         mcSync(0, NULL, &fd);
     }
 
-    if (fd < 0) return fd;
+    if (fd < 0)
+    {
+        scr_printf("nor on mc1\n");
+        return fd;
+    }
 
     mcRead(fd, dst, 65535);
     mcSync(0, NULL, &r);
+    scr_printf("found; read %db\n", r);
 
     return r;
 }

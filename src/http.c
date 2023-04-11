@@ -118,7 +118,6 @@ static int parse_request(int socket, char *out_path)
 /* https://stackoverflow.com/questions/2673207/c-c-url-decode-library */
 static void url_decode(char *dst, const char *src)
 {
-    /* decode */
     char a, b;
     while (*src)
     {
